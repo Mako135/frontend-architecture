@@ -141,7 +141,6 @@ shared/
 ├── ui/                  # Базовые UI примитивы (shadcn/ui)
 │   ├── button.tsx       # Базовая кнопка
 │   ├── input.tsx        # Базовый инпут
-│   ├── password-input.tsx # Инпут с показом пароля
 │   ├── checkbox.tsx
 │   ├── dialog.tsx
 │   └── ...
@@ -158,7 +157,7 @@ shared/
 | Категория | Назначение | Примеры |
 |-----------|------------|---------|
 | **`ui/`** | **Базовые UI примитивы** — низкоуровневые компоненты без бизнес-логики | `Button`, `Input`, `Checkbox`, `Dialog`, `Select` |
-| **`components/`** | **Структурные компоненты** — композиция примитивов с дополнительной логикой | `NavLink`, `ActionCard`, `Table`, `Form`, `SearchInput` |
+| **`components/`** | **Структурные компоненты** — композиция примитивов с дополнительной логикой | `NavLink`, `ActionCard`, `Table`, `Form` |
 
 **Пример**:
 - `shared/ui/button.tsx` — просто кнопка с вариантами стилей
@@ -168,7 +167,7 @@ shared/
 
 #### 🔹 Что такое `shared/lib/`?
 
-`shared/lib/` — переиспользуемые типы, константы и утилиты для UI компонентов.
+`shared/lib/` — переиспользуемые типы, константы.
 
 **Различие с `/src/lib/`**:
 - `/src/lib/` — глобальная конфигурация приложения (провайдеры, middleware)
@@ -182,7 +181,7 @@ export const queryClient = new QueryClient({ ... }); // Конфигурация
 // ✅ /src/shared/lib/types.ts  
 export type Status = "active" | "inactive"; // Типы для UI
 
-// ✅ /src/shared/utils/utils.ts
+// ✅ /src/shared/utils/format-date.ts
 export const formatDate = (date: Date) => ...; // UI утилита
 ```
 
@@ -205,7 +204,6 @@ lib/
 ├── query-client.tsx            # Конфигурация React Query
 ├── confirm-dialog-provider.tsx # Глобальный диалог подтверждения
 ├── middleware-helpers.ts       # Хелперы для Next.js middleware
-├── utils.ts                    # Глобальные утилиты (cn и т.д.)
 └── verify-guard.tsx            # Auth guard
 ```
 
@@ -236,7 +234,6 @@ lib/
 import { AmplitudeProvider } from "@/lib/amplitude-provider"; // ✅ lib - провайдер
 import { TanstackProviders } from "@/lib/tanstack-provider";   // ✅ lib - провайдер
 import { Toaster } from "@shared/ui/sonner";                  // ✅ shared/ui - компонент
-import { PageViewTracker } from "@shared/components/...";     // ✅ shared/components
 
 export default function RootLayout({ children }) {
   return (
