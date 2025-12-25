@@ -1,5 +1,3 @@
-# Архитектура проекта DevMarket
-
 ## Обзор
 
 Проект построен на основе **модульной архитектуры** с использованием Next.js 14+ (App Router), React 18+, TypeScript и TailwindCSS. Основной принцип организации кода — **feature-based модули** с иерархией parent → child.
