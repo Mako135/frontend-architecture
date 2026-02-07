@@ -8,7 +8,7 @@
 - **Feature-based модули** — код организован по функциональным модулям
 - **Parent → Child иерархия** — модули могут содержать подмодули
 - **4 уровня переиспользования** — четкие правила где размещать компоненты
-- **Модульные API** — каждый модуль управляет своими API запросами
+- **Модульные API** — каждый модуль управляет своими API запросами в `lib/`
 - **Минимум файлов** — создаем файлы и папки только когда это действительно нужно
 
 ---
@@ -25,8 +25,7 @@
 | **UI-примитив** | Базовый UI компонент без бизнес-логики (`Button`, `Input`, `Dialog`). Располагается в `shared/ui/` |
 | **Структурный компонент** | Композиция UI-примитивов с логикой (`NavLink`, `ActionCard`, `UnifiedTable`). Располагается в `shared/components/` |
 | **Barrel export** | Файл `index.ts`, который реэкспортирует содержимое директории для удобного импорта |
-| **API-слой модуля** | Директория `api/` внутри модуля, содержащая API-класс и TanStack Query хуки |
-| **lib/** (в модуле) | Локальные типы, константы, схемы валидации, утилиты для конкретного модуля или страницы |
+| **lib/** (в модуле) | Локальные типы, константы, схемы валидации, утилиты, API-функции, queries и server actions для конкретного модуля или страницы |
 | **lib/** (глобальный) | Директория `/src/lib/` — глобальная конфигурация приложения: провайдеры, guards, query-client |
 | **Store** | Глобальное хранилище состояния (Zustand). Располагается в `shared/store/` |
 
@@ -56,10 +55,9 @@ src/
 │
 ├── modules/                # Функциональные модули приложения
 │   ├── auth/               # Контейнер-модуль авторизации
-│   │   ├── shared/         # Общее для login, register, forgot-password
-│   │   │   └── lib/
-│   │   │       ├── auth-actions.ts
-│   │   │       └── auth-form-configs.ts
+│   │   ├── shared/         # Общие компоненты (auth-layout и т.д.)
+│   │   │   └── components/
+│   │   │       └── auth-layout.tsx
 │   │   ├── login/          # Страница логина
 │   │   ├── register/       # Страница регистрации
 │   │   └── forgot-password/
@@ -67,8 +65,7 @@ src/
 │   └── dashboard/          # Контейнер-модуль дашборда
 │       ├── shared/         # Общее для всех страниц дашборда
 │       │   ├── components/
-│       │   ├── lib/
-│       │   └── api/
+│       │   └── lib/        # api.ts, queries.ts, types.ts, actions.ts
 │       ├── quests/         # Страница квестов
 │       └── submissions/    # Страница сабмишенов
 │
@@ -96,34 +93,37 @@ api/
 └── index.ts            # apiRequest — базовая функция запросов
 ```
 
-> **Важно:** `api/` — это только конфигурация и инфраструктура. Все бизнес-специфичные API-запросы размещаются в `modules/*/api/`.
+> **Важно:** `api/` — это только конфигурация и инфраструктура. Все бизнес-специфичные API-запросы размещаются в `modules/*/lib/`.
 
-**Модульные API** — API специфичные для модуля:
+**Модульные API** — API размещаются в `lib/` модуля рядом с типами и хуками:
 ```
 modules/dashboard/quests/
-└── api/
-    ├── index.ts       # API функции (getQuests, createQuest...)
-    └── queries.ts     # TanStack Query хуки (useQuests, useCreateQuest...)
+└── lib/
+    ├── api.ts         # API функции (getQuests, createQuest...)
+    ├── queries.ts     # TanStack Query хуки (useQuests, useCreateQuest...)
+    ├── actions.ts     # Server actions (если нужны)
+    └── types.ts       # Типы
 ```
 
 ### Правила
 
-**✅ Размещайте в `api/`:**
+**✅ Размещайте в `api/` (глобальный):**
 - Конфигурация HTTP-клиента
 - Обработка ошибок
 - Логика токенов и авторизации
 - Базовая функция `apiRequest`
 
-**✅ Размещайте в `modules/*/api/`:**
-- Все бизнес-специфичные API-запросы
-- TanStack Query хуки для данных модуля
+**✅ Размещайте в `modules/*/lib/`:**
+- Все бизнес-специфичные API-запросы (`api.ts`)
+- TanStack Query хуки (`queries.ts`)
+- Server actions (`actions.ts`)
 - Примеры: `getQuests()`, `useSubmissions()`, `loginAction()`
 
-### Пример: modules/dashboard/quests/api/index.ts
+### Пример: modules/dashboard/quests/lib/api.ts
 
 ```typescript
 import { apiRequest } from "@/api";
-import type { Quest, CreateQuestDTO } from "../lib/types";
+import type { Quest, CreateQuestDTO } from "./types";
 
 export const getQuests = async (organizationId: number) => {
   return apiRequest<Quest[]>("get", `/organizations/${organizationId}/quests`);
@@ -153,11 +153,11 @@ export const deleteQuest = async (organizationId: number, questId: number) => {
 };
 ```
 
-### Пример: modules/dashboard/quests/api/queries.ts
+### Пример: modules/dashboard/quests/lib/queries.ts
 
 ```typescript
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getQuests, createQuest, updateQuest, deleteQuest } from "./index";
+import { getQuests, createQuest, updateQuest, deleteQuest } from "./api";
 
 export const useQuestsQuery = (organizationId: number | null) => {
   return useQuery({
@@ -191,14 +191,15 @@ export const useCreateQuestMutation = (organizationId: number) => {
 
 ```
 modules/auth/                    # Контейнер-модуль
-├── shared/                      # Общее для login, register, forgot-password
-│   └── lib/
-│       ├── auth-actions.ts      # Server actions для форм
-│       └── auth-form-configs.ts # Конфигурации форм
-├── login/                       # Страница
+├── shared/                      # Общие компоненты для login, register, forgot-password
+│   └── components/
+│       └── auth-layout.tsx  # Общий layout авторизации
+├── login/                       # Страница (со своими actions, api, схемами)
 ├── register/                    # Страница
 └── forgot-password/             # Страница
 ```
+
+> **Важно:** В `auth/shared/` только **общие компоненты** (auth-layout и т.д.). Actions, API-запросы, схемы валидации остаются **в самих page-модулях** (login/, register/).
 
 ```
 modules/dashboard/               # Контейнер-модуль
@@ -209,8 +210,9 @@ modules/dashboard/               # Контейнер-модуль
 │   │   ├── locations-list.tsx
 │   │   └── map-picker.tsx
 │   └── lib/
-│       ├── api.ts
-│       ├── queries.ts
+│       ├── api.ts               # API функции общие для модуля
+│       ├── queries.ts           # TanStack Query хуки
+│       ├── actions.ts           # Server actions
 │       └── types.ts
 ├── quests/                      # Страница
 ├── submissions/                 # Страница
@@ -222,13 +224,13 @@ modules/dashboard/               # Контейнер-модуль
 
 ```
 modules/dashboard/quests/        # Page-модуль
-├── api/                         # API квестов
-│   ├── index.ts
-│   └── queries.ts
 ├── components/                  # Компоненты страницы
 │   └── quests-table.tsx
-├── lib/                         # Типы, хуки, утилиты
+├── lib/                         # Типы, хуки, API, утилиты
 │   ├── types.ts
+│   ├── api.ts                   # API функции
+│   ├── queries.ts               # TanStack Query хуки
+│   ├── actions.ts               # Server actions (если нужны)
 │   └── use-quests.ts
 └── index.tsx                    # Главный компонент
 ```
@@ -240,8 +242,8 @@ modules/dashboard/quests/        # Page-модуль
 ```
 modules/
 ├── auth/                          # Контейнер уровня 1
-│   ├── shared/                    # Общее для login, register, forgot-password
-│   ├── login/                     # Страница
+│   ├── shared/                    # Общие компоненты (auth-layout)
+│   ├── login/                     # Страница (со своим lib/, actions, api)
 │   ├── register/                  # Страница
 │   └── forgot-password/           # Страница
 │
@@ -310,14 +312,14 @@ modules/dashboard/
     ├── lib/
     │   ├── types.ts                # Profile, Organization...
     │   ├── api.ts                  # getProfile, getOrganization
-    │   └── queries.ts              # useProfile
+    │   ├── queries.ts              # useProfile, useOrganization
+    │   └── actions.ts              # Server actions
     └── store/                      # Состояние модуля (если нужно)
 ```
 
 **Что здесь может быть:**
 - `components/` — layout, общие секции
-- `lib/` — типы, константы, утилиты модуля, хуки
-- `api/` — API используемые в нескольких страницах модуля
+- `lib/` — типы, константы, утилиты, хуки, API, queries, actions
 - `store/` — состояние специфичное для модуля
 
 ---
@@ -394,18 +396,17 @@ modules/dashboard/services/
 
 ```
 modules/dashboard/quests/
-├── api/                 # API модуля (если есть свои эндпоинты)
-│   ├── index.ts         # API функции
-│   └── queries.ts       # TanStack Query хуки
-│
 ├── components/          # UI компоненты страницы
 │   ├── quests-table.tsx
 │   └── quest-form.tsx
 │
-├── lib/                 # Локальные утилиты, типы, хуки
+├── lib/                 # Локальные утилиты, типы, хуки, API
 │   ├── types.ts         # Типы специфичные для страницы
 │   ├── validation.ts    # Схемы валидации (Zod)
 │   ├── constants.ts     # Константы страницы
+│   ├── api.ts           # API функции (getQuests, createQuest...)
+│   ├── queries.ts       # TanStack Query хуки
+│   ├── actions.ts       # Server actions (Next.js)
 │   └── use-quests.ts    # Кастомные хуки
 │
 └── index.tsx            # ❗ Главный компонент страницы (Page)
@@ -461,22 +462,32 @@ export const LogoutPage = ({ redirectUrl }: LogoutPageProps) => {
 
 ---
 
-#### ✅ Когда создавать `api/`
+#### ✅ Когда добавлять API-файлы в `lib/`
 
-**Создавай** когда у страницы **свои API-эндпоинты**:
+**Добавляй** когда у страницы **свои API-эндпоинты**:
 ```
 modules/dashboard/quests/
-├── api/
-│   ├── index.ts       # getQuests, createQuest...
-│   └── queries.ts     # useQuestsQuery, useCreateQuestMutation...
+├── lib/
+│   ├── api.ts         # getQuests, createQuest...
+│   ├── queries.ts     # useQuestsQuery, useCreateQuestMutation...
+│   ├── actions.ts     # Server actions (если нужны)
+│   └── types.ts
 └── index.tsx
 ```
 
-**НЕ создавай** когда страница использует только API из `shared/`:
+**Не добавляй** когда страница использует только API из `shared/`:
 ```
 modules/dashboard/overview/
 └── index.tsx    # Использует useProfile из dashboard/shared/lib/queries.ts
 ```
+
+**Файлы API в `lib/`:**
+
+| Файл | Назначение | Пример |
+|------|------------|--------|
+| **`api.ts`** | HTTP-запросы к эндпоинтам | `getQuests()`, `createQuest()` |
+| **`queries.ts`** | TanStack Query хуки | `useQuestsQuery()`, `useCreateQuestMutation()` |
+| **`actions.ts`** | Next.js Server Actions | `createQuestAction()`, `deleteQuestAction()` |
 
 ---
 
@@ -899,10 +910,11 @@ validation.ts
 format.ts
 ```
 
-**API:**
+**API (в lib/):**
 ```
-index.ts       # API функции
+api.ts         # API функции
 queries.ts     # TanStack Query хуки
+actions.ts     # Server actions
 ```
 
 **Store:**
@@ -922,11 +934,13 @@ organization-store.ts
 shared/lib/form-schema.ts    # createZodSchemaFromConfig()
 ```
 
-**Модульные схемы** — конфигурации и правила для конкретного модуля:
+**Модульные схемы** — конфигурации и правила для конкретной страницы:
 ```
-modules/auth/shared/lib/
-├── auth-form-configs.ts      # loginFormConfig, registerFormConfig
-└── auth-actions.ts           # Server actions использующие схемы
+modules/auth/login/lib/
+└── validation.ts         # loginSchema
+
+modules/auth/register/lib/
+└── validation.ts         # registerSchema
 ```
 
 **Локальные схемы** — для конкретной страницы:
@@ -965,8 +979,7 @@ modules/dashboard/quests/lib/
 ```
 ✅ Все в index.tsx если < 100 строк
 ✅ Создавай components/ только при 2+ компонентах
-✅ Создавай lib/ только при 2+ файлах
-✅ Создавай api/ только при наличии своих эндпоинтов
+✅ Создавай lib/ только при 2+ файлах (типы, api, queries, actions, хуки)
 ```
 
 #### 5. Используй 4 уровня переиспользования
@@ -1024,7 +1037,7 @@ import { QuestsTable } from "./components/quests-table"; // напрямую
 
 ✅ api/config.ts              (конфигурация клиента)
 ✅ api/index.ts               (базовый apiRequest)
-✅ modules/dashboard/quests/api/index.ts    (API квестов)
+✅ modules/dashboard/quests/lib/api.ts    (API квестов)
 ```
 
 ---
